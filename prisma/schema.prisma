@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String
+  phone         String
+  parentPhone   String?
+  governorate   String
+  grade         String
+  password      String     // hashed
+  role          String     @default("student") // "student" or "admin"
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  studentProgress StudentProgress[]
+  quizResults     QuizResult[]
+  accessCodes     AccessCode[]
+}
+
+model Course {
+  id            String     @id @default(cuid())
+  title         String
+  description   String
+  grade         String
+  thumbnail     String?
+  price         Int        @default(0)
+  videosCount   Int        @default(0)
+  quizzesCount  Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  videos        Video[]
+  quizzes       Quiz[]
+  accessCodes   AccessCode[]
+  progress      StudentProgress[]
+}
+
+model Video {
+  id            String     @id @default(cuid())
+  courseId      String
+  course        Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  url           String
+  duration      String
+  order         Int
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  quizzes       Quiz[]
+
+  @@index([courseId])
+}
+
+model Quiz {
+  id            String     @id @default(cuid())
+  courseId      String
+  course        Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  videoId       String?
+  video         Video?     @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  title         String
+  type          String     // "video", "monthly", "final"
+  questions     Json       // Array of Question objects
+  duration      Int        // in minutes
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  results       QuizResult[]
+
+  @@index([courseId])
+  @@index([videoId])
+}
+
+model AccessCode {
+  id            String     @id @default(cuid())
+  code          String     @unique
+  courseId      String
+  course        Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId     String?
+  student       User?      @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  isUsed        Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  usedAt        DateTime?
+  
+  @@index([courseId])
+  @@index([studentId])
+}
+
+model StudentProgress {
+  id                String   @id @default(cuid())
+  studentId         String
+  student           User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId          String
+  course            Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  completedVideos   String[] // array of video IDs
+  updatedAt         DateTime @updatedAt
+
+  @@unique([studentId, courseId])
+  @@index([studentId])
+  @@index([courseId])
+}
+
+model QuizResult {
+  id            String   @id @default(cuid())
+  quizId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score         Int
+  answers       Int[]    // array of answer indices
+  completedAt   DateTime @default(now())
+
+  @@index([quizId])
+  @@index([studentId])
+}
